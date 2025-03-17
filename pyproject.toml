@@ -18,6 +18,8 @@ torch = "^2.6.0"
 SMPL = {git = "https://github.com/ZiXuanVickyLu/pySMPL.git"}
 plyfile = "^1.1.0"
 pillow = "^11.1.0"
+torchvision = "^0.21.0"
+torchaudio = "^2.6.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.3.1"
