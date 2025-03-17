@@ -18,7 +18,7 @@ venv\Scripts\activate.ps1
 Then install the project through poetry:
 ```bash
 poetry install
-poetry shell
+pip install chumpy==0.70 --no-build-isolation
 ```
 It may take about 2 minutes.
 

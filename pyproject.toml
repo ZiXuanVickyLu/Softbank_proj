@@ -7,15 +7,14 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-numpy = "^1.24.3"
+numpy = "^1.26.4"
 scipy = "^1.10.0"
-matplotlib = "^3.10.0"
+matplotlib = "^3.10.1"
 PyOpenGL = "^3.1.6"
 PyQt6 = "^6.5.0"
 opencv-python = "^4.11.0"
 tqdm = "^4.65.0"
 torch = "^2.6.0"
-chumpy = "^0.70.0"
 SMPL = {git = "https://github.com/ZiXuanVickyLu/pySMPL.git"}
 plyfile = "^1.1.0"
 pillow = "^11.1.0"
