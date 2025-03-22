@@ -2,8 +2,16 @@
 An application for softbank cooperation project. On this project, we aim to use pre-registered parameterized 3D tetrapods and multi-viewing video sequences to estimate the 3D pose and shape of the tetrapods and rebuild the animation of the tetrapods.
 
 ## Set up the environment
-Please make sure you have virtualenv installed. If not, you can install it by `pip install virtualenv`. We use poetry to manage the dependencies.
+Please make sure you have virtualenv/conda and poetryinstalled. 
 
+If not, you can install it by `pip install virtualenv`. We use poetry to manage the dependencies.
+
+Once you have install the poetry, please run the following command:
+```bash
+poetry self update
+```
+
+Then, run the following command to create a virtual environment and activate it:
 
 ```bash
 python -m virtualenv -p 3.10 venv
@@ -19,8 +27,9 @@ Then install the project through poetry:
 ```bash
 poetry install
 pip install chumpy==0.70 --no-build-isolation
+pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 ```
-It may take about 2 minutes.
+It may take about 4 minutes.
 
 Then, go to the path that Chumpy is installed, and replace the `__init__modified_chumpy.py` with `__init__.py` and rename it to `__init__.py`. This should resolve the issue of Chumpy importing some deprecated numpy components.
 
