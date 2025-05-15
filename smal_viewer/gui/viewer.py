@@ -11,6 +11,7 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from ..utils.cow_loader import load_cow_model, apply_cow_params_to_model, get_available_cow_models
 import os
+import pickle
 
 class SMALViewer(QOpenGLWidget):
     def __init__(self, parent=None):
@@ -639,8 +640,13 @@ class SMALViewer(QOpenGLWidget):
         if betas is None:
             betas = cow_params.get('beta', None)  # Try singular form
         
-        pose = cow_params.get('pose', None) or self.model.pose
-        
+        # Fix the pose handling to avoid the "truth value of an array is ambiguous" error
+        pose = None
+        if 'pose' in cow_params:
+            pose = cow_params['pose']
+        else:
+            pose = self.model.pose
+            
         if betas is not None:
             print(f"Applying cow shape parameters to viewer: {betas[:5]}...")
             # Ensure betas is a numpy array
@@ -915,6 +921,59 @@ class SMALViewer(QOpenGLWidget):
                 self.joint_spinboxes[i].setValue(int(float(value) * 100))
                 self.joint_spinboxes[i].blockSignals(False)
 
+    def export_to_obj(self, file_path):
+        """Export the current model as an OBJ file"""
+        if self.vertices is None or self.faces is None:
+            print("No model to export")
+            return False
+            
+        try:
+            with open(file_path, 'w') as f:
+                # Write header
+                f.write("# Exported from SMAL Viewer\n")
+                f.write(f"# Vertices: {len(self.vertices)}\n")
+                f.write(f"# Faces: {len(self.faces)}\n\n")
+                
+                # Write vertices
+                for vertex in self.vertices:
+                    f.write(f"v {vertex[0]} {vertex[1]} {vertex[2]}\n")
+                
+                # Write faces (OBJ uses 1-based indexing)
+                for face in self.faces:
+                    f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
+                    
+            print(f"Successfully exported model to {file_path}")
+            return True
+        except Exception as e:
+            print(f"Error exporting model: {e}")
+            return False
+
+    def export_to_pkl(self, file_path):
+        """Export the current model parameters as a PKL file"""
+        if self.model is None:
+            print("No model to export")
+            return False
+            
+        try:
+            # Create a dictionary with the current model parameters
+            model_params = {
+                'pose': self.model.pose.copy() if hasattr(self.model, 'pose') else None,
+                'betas': self.model.betas.copy() if hasattr(self.model, 'betas') else None,
+                'trans': self.model.trans.copy() if hasattr(self.model, 'trans') else None
+            }
+            
+            # Save the parameters to a pickle file
+            with open(file_path, 'wb') as f:
+                pickle.dump(model_params, f)
+                
+            print(f"Successfully exported model parameters to {file_path}")
+            return True
+        except Exception as e:
+            print(f"Error exporting model parameters: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -1094,6 +1153,16 @@ class MainWindow(QMainWindow):
         self.transparency_checkbox.setChecked(True)
         self.transparency_checkbox.toggled.connect(self.toggle_transparency)
         viz_layout.addWidget(self.transparency_checkbox)
+        
+        # Add a download button
+        self.download_button = QPushButton("Download OBJ")
+        self.download_button.clicked.connect(self.download_model)
+        viz_layout.addWidget(self.download_button)
+        
+        # Add a download PKL button
+        self.download_pkl_button = QPushButton("Download PKL")
+        self.download_pkl_button.clicked.connect(self.download_model_pkl)
+        viz_layout.addWidget(self.download_pkl_button)
         
         controls_layout.addLayout(viz_layout)
         
@@ -1492,4 +1561,62 @@ class MainWindow(QMainWindow):
                 label.setText(f"{value:.2f}")
         
         # Update the display
-        self.viewer.update() 
+        self.viewer.update()
+
+    def download_model(self):
+        """Download the current model as an OBJ file"""
+        if not hasattr(self.viewer, 'model') or self.viewer.model is None:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "No Model", "No model loaded to download.")
+            return
+            
+        # Open file dialog to choose save location
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Model as OBJ", "", "OBJ Files (*.obj)"
+        )
+        
+        if file_path:
+            # Add .obj extension if missing
+            if not file_path.lower().endswith('.obj'):
+                file_path += '.obj'
+                
+            # Export the model to OBJ format
+            success = self.viewer.export_to_obj(file_path)
+            
+            # Show success/error message
+            from PyQt6.QtWidgets import QMessageBox
+            if success:
+                QMessageBox.information(self, "Export Successful", 
+                                      f"Model exported successfully to:\n{file_path}")
+            else:
+                QMessageBox.critical(self, "Export Failed", 
+                                    "Failed to export model. See console for details.")
+
+    def download_model_pkl(self):
+        """Download the current model parameters as a PKL file"""
+        if not hasattr(self.viewer, 'model') or self.viewer.model is None:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "No Model", "No model loaded to download.")
+            return
+            
+        # Open file dialog to choose save location
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Model Parameters as PKL", "", "Pickle Files (*.pkl)"
+        )
+        
+        if file_path:
+            # Add .pkl extension if missing
+            if not file_path.lower().endswith('.pkl'):
+                file_path += '.pkl'
+                
+            # Export the model parameters to PKL format
+            success = self.viewer.export_to_pkl(file_path)
+            
+            # Show success/error message
+            from PyQt6.QtWidgets import QMessageBox
+            if success:
+                QMessageBox.information(self, "Export Successful", 
+                                      f"Model parameters exported successfully to:\n{file_path}")
+            else:
+                QMessageBox.critical(self, "Export Failed", 
+                                    "Failed to export model parameters. See console for details.") 

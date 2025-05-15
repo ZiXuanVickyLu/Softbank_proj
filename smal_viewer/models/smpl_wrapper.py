@@ -16,8 +16,15 @@ class SMPLWrapper:
         self.f = smpl_model.f
         
         # Store the current pose and shape parameters
-        self.pose = np.array(smpl_model.pose.r)
-        self.betas = np.array(smpl_model.betas.r)
+        # Handle both Chumpy objects and NumPy arrays
+        if hasattr(smpl_model.pose, 'r'):
+            # Chumpy object case
+            self.pose = np.array(smpl_model.pose.r)
+            self.betas = np.array(smpl_model.betas.r)
+        else:
+            # NumPy array case
+            self.pose = np.array(smpl_model.pose)
+            self.betas = np.array(smpl_model.betas)
         
         # Copy the kinematic tree table if available
         if hasattr(smpl_model, 'kintree_table'):
@@ -32,7 +39,12 @@ class SMPLWrapper:
         
         # Initialize joint positions
         if hasattr(smpl_model, 'J'):
-            self.J = np.array(smpl_model.J.r)
+            if hasattr(smpl_model.J, 'r'):
+                # Chumpy object case
+                self.J = np.array(smpl_model.J.r)
+            else:
+                # NumPy array case
+                self.J = np.array(smpl_model.J)
         else:
             # If J is not directly available, we need to compute it
             # This is a simplified version - you might need to adjust based on your model
@@ -47,15 +59,36 @@ class SMPLWrapper:
     def update_from_smpl(self):
         """Update internal state from the SMPL model"""
         # Get the current vertices from the SMPL model
-        self.vertices = np.array(self.smpl_model.r)
+        if hasattr(self.smpl_model, 'r'):
+            # Chumpy object case
+            self.vertices = np.array(self.smpl_model.r)
+        else:
+            # Call forward method if available, or use directly if it's already the vertices
+            if hasattr(self.smpl_model, 'forward'):
+                # This is expected to return vertices directly
+                self.vertices = self.smpl_model.forward(self.pose, self.betas)
+            else:
+                # Assume it's already the vertices
+                self.vertices = np.array(self.smpl_model.v_template)
         
         # Store the current pose and shape parameters
-        self.pose = np.array(self.smpl_model.pose.r)
-        self.betas = np.array(self.smpl_model.betas.r)
+        if hasattr(self.smpl_model.pose, 'r'):
+            # Chumpy object case
+            self.pose = np.array(self.smpl_model.pose.r)
+            self.betas = np.array(self.smpl_model.betas.r)
+        else:
+            # NumPy array case
+            self.pose = np.array(self.smpl_model.pose)
+            self.betas = np.array(self.smpl_model.betas)
         
         # Update joint positions if available
         if hasattr(self.smpl_model, 'J'):
-            self.J = np.array(self.smpl_model.J.r)
+            if hasattr(self.smpl_model.J, 'r'):
+                # Chumpy object case
+                self.J = np.array(self.smpl_model.J.r)
+            else:
+                # NumPy array case
+                self.J = np.array(self.smpl_model.J)
     
     def forward(self, pose=None, betas=None, **kwargs):
         """
@@ -76,12 +109,20 @@ class SMPLWrapper:
                 pose_array = np.array(pose)
             
             # Assign to the SMPL model's pose
-            self.smpl_model.pose[:] = pose_array
+            # Handle both Chumpy and NumPy models
+            if hasattr(self.smpl_model.pose, 'r'):
+                self.smpl_model.pose[:] = pose_array
+            else:
+                self.smpl_model.pose = pose_array
             self.pose = pose_array
         
         if betas is not None:
             # Handle dimension mismatch
-            expected_dim = len(self.smpl_model.betas.r)
+            if hasattr(self.smpl_model.betas, 'r'):
+                expected_dim = len(self.smpl_model.betas.r)
+            else:
+                expected_dim = len(self.smpl_model.betas)
+                
             if len(betas) != expected_dim:
                 print(f"WARNING: Shape parameter dimension mismatch. Got {len(betas)}, expected {expected_dim}.")
                 # Simple padding/truncation to match dimensions
@@ -96,15 +137,32 @@ class SMPLWrapper:
             else:
                 betas_array = np.array(betas)
                 
-            self.smpl_model.betas[:] = betas_array
+            # Assign to SMPL model's betas
+            # Handle both Chumpy and NumPy models
+            if hasattr(self.smpl_model.betas, 'r'):
+                self.smpl_model.betas[:] = betas_array
+            else:
+                self.smpl_model.betas = betas_array
             self.betas = betas_array
         
         # Update the vertices
-        self.vertices = np.array(self.smpl_model.r)
+        # If the model has a direct forward method, use it
+        if hasattr(self.smpl_model, 'forward'):
+            self.vertices = self.smpl_model.forward(pose=self.pose, betas=self.betas)
+        elif hasattr(self.smpl_model, 'r'):
+            # For Chumpy models, 'r' gives the current vertices
+            self.vertices = np.array(self.smpl_model.r)
+        else:
+            # Fallback, though this shouldn't typically happen
+            print("WARNING: No way to get updated vertices from SMPL model.")
+            self.vertices = np.array(self.smpl_model.v_template)
         
         # Update joint positions if available
         if hasattr(self.smpl_model, 'J'):
-            self.J = np.array(self.smpl_model.J.r)
+            if hasattr(self.smpl_model.J, 'r'):
+                self.J = np.array(self.smpl_model.J.r)
+            else:
+                self.J = np.array(self.smpl_model.J)
         
         return self.vertices
     
