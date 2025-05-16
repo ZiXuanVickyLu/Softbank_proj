@@ -123,7 +123,7 @@ def load_animation_sequence(sequence_path=None):
 
 def load_model_from_pkl(pkl_path):
     with open(pkl_path, 'rb') as f:
-        data = pickle.load(f)
+        data = pickle.load(f, encoding='latin1')
     
     # Add debugging to check the shape parameters
     print("Shape parameters in PKL:", data.get('betas', None))

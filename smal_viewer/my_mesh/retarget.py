@@ -597,6 +597,13 @@ def laplacian_regularization_post_process(initial_verts_deformed: torch.Tensor,
     print("Laplacian Regularization finished.")
     return V_out.cpu().detach()
 
+def open3d_laplacian_smooth(verts, faces, iterations=10, lambda_=0.5):
+    mesh = o3d.geometry.TriangleMesh()
+    mesh.vertices = o3d.utility.Vector3dVector(verts.cpu().numpy())
+    mesh.triangles = o3d.utility.Vector3iVector(faces.cpu().numpy())
+    mesh = mesh.filter_smooth_laplacian(number_of_iterations=iterations, lambda_filter=lambda_)
+    return torch.tensor(np.asarray(mesh.vertices), dtype=verts.dtype)
+
 def main(args):
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -741,72 +748,30 @@ def main(args):
         vis_title_suffix = f"Initial ({args.target_smal_pkl.name})"
         output_obj_filename = "retargeted_render_initial.obj" # Already saved
 
-        if args.laplacian_reg_weight >= 0: # Use laplacian if weight is non-negative (0 means only data term)
-            print("Applying Laplacian Regularization post-processing...")
-            laplacian_reg_verts = laplacian_regularization_post_process(
-                initial_verts_deformed=retargeted_render_verts.to(DEVICE),
-                rest_verts_for_laplacian_calc=aligned_render_obj_verts.to(DEVICE),
-                faces_tensor=render_obj_faces.to(DEVICE),
-                smoothness_param_w=args.laplacian_reg_weight,
-                device=DEVICE
-            )
-            final_retargeted_verts_to_visualize = laplacian_reg_verts
-            output_obj_filename = "retargeted_render_laplacian_reg.obj"
-            save_mesh(args.output_dir / output_obj_filename,
-                      laplacian_reg_verts.cpu().numpy(),
-                      render_obj_faces.cpu().numpy())
-            print(f"Saved Laplacian Regularized {output_obj_filename}")
-            vis_title_suffix = f"Laplacian Reg. (w={args.laplacian_reg_weight}) ({args.target_smal_pkl.name})"
-        
-        elif args.spring_iters > 0:
-            print("Applying Spring Energy post-processing to retargeted mesh...")
-            spring_processed_verts = spring_energy_post_process(
-                initial_verts_deformed=retargeted_render_verts.to(DEVICE),
-                rest_verts=aligned_render_obj_verts.to(DEVICE),
-                faces_tensor=render_obj_faces.to(DEVICE),
-                num_iters=args.spring_iters,
-                lr=args.spring_lr,
-                device=DEVICE
-            )
-            final_retargeted_verts_to_visualize = spring_processed_verts
-            output_obj_filename = "retargeted_render_spring.obj"
-            save_mesh(args.output_dir / output_obj_filename,
-                      spring_processed_verts.cpu().numpy(),
-                      render_obj_faces.cpu().numpy())
-            print(f"Saved Spring processed {output_obj_filename}")
-            vis_title_suffix = f"Spring Processed ({args.target_smal_pkl.name})"
+        # Apply Open3D Laplacian smoothing as the final step
+        print("Applying Open3D Laplacian smoothing to retargeted mesh...")
+        smoothed_verts = open3d_laplacian_smooth(
+            final_retargeted_verts_to_visualize.to('cpu'),
+            render_obj_faces.to('cpu'),
+            iterations=10,          # You can adjust this
+            lambda_=0.5             # You can adjust this
+        )
+        output_obj_filename = "retargeted_render_smoothed.obj"
+        save_mesh(args.output_dir / output_obj_filename,
+                  smoothed_verts.cpu().numpy(),
+                  render_obj_faces.cpu().numpy())
+        print(f"Saved smoothed mesh {output_obj_filename}")
+        vis_title_suffix = f"Open3D Laplacian Smoothed ({args.target_smal_pkl.name})"
 
-        elif args.arap_iters > 0: # ARAP is fallback if spring_iters is 0
-            print("Applying ARAP post-processing to retargeted mesh...")
-            # V_rest for ARAP is the aligned_render_obj_verts (shape before this specific target's deformation)
-            # V_skin for ARAP is retargeted_render_verts
-            
-            arap_processed_verts = arap_post_process(
-                initial_verts_deformed=retargeted_render_verts.to(DEVICE),
-                rest_verts=aligned_render_obj_verts.to(DEVICE), # This is key: rest shape is the aligned render mesh
-                faces=render_obj_faces.to(DEVICE),
-                num_iters=args.arap_iters,
-                device=DEVICE
-            )
-            
-            final_retargeted_verts_to_visualize = arap_processed_verts # Use ARAP result
-            output_obj_filename = "retargeted_render_arap.obj"
-            save_mesh(args.output_dir / output_obj_filename, 
-                      arap_processed_verts.cpu().numpy(), 
-                      render_obj_faces.cpu().numpy())
-            print(f"Saved ARAP processed {output_obj_filename}")
-            vis_title_suffix = f"ARAP Processed ({args.target_smal_pkl.name})"
-        # else: visual will use initial retargeted_render_verts saved as retargeted_render_initial.obj
-
-        # Optional: Visualize final retargeted mesh (either ARAP processed or initial)
-        retargeted_o3d_mesh_for_vis = o3d.geometry.TriangleMesh()
-        retargeted_o3d_mesh_for_vis.vertices = o3d.utility.Vector3dVector(final_retargeted_verts_to_visualize.cpu().numpy())
-        retargeted_o3d_mesh_for_vis.triangles = o3d.utility.Vector3iVector(render_obj_faces.cpu().numpy())
-        retargeted_o3d_mesh_for_vis.compute_vertex_normals()
+        # Visualize final smoothed mesh
+        smoothed_o3d_mesh_for_vis = o3d.geometry.TriangleMesh()
+        smoothed_o3d_mesh_for_vis.vertices = o3d.utility.Vector3dVector(smoothed_verts.cpu().numpy())
+        smoothed_o3d_mesh_for_vis.triangles = o3d.utility.Vector3iVector(render_obj_faces.cpu().numpy())
+        smoothed_o3d_mesh_for_vis.compute_vertex_normals()
 
         target_parents_np = target_kintree_table_np[0, :]
         visualize_mesh_with_skeleton(
-            retargeted_o3d_mesh_for_vis,
+            smoothed_o3d_mesh_for_vis,
             target_joints.cpu().numpy(),
             target_parents_np,
             title=f"Retargeted Render Mesh {vis_title_suffix}"
