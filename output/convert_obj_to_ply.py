@@ -47,13 +47,15 @@ def convert_obj_to_ply(obj_file_path, ply_file_path, number_of_points=2048):
 
 if __name__ == "__main__":
     # --- Configuration ---
-    input_obj_file = "render_geometry.obj"  # Replace with your OBJ file path
-    output_ply_file = "render_geometry.ply" # Replace with your desired PLY file path
+    input_obj_file = "render.obj"  # Replace with your OBJ file path
+    output_ply_file = "render_500.ply" # Replace with your desired PLY file path
     #input_obj_file = "smal_target_cow_alph5.obj"  # Replace with your OBJ file path
     # output_ply_file = "smal_target_cow_alph5.ply" # Replace with your desired PLY file path
     # input_obj_file = "template_aligned.obj"  # Replace with your OBJ file path
     # output_ply_file = "template_aligned.ply" # Replace with your desired PLY file path
-    num_points_to_sample = 5000   # Number of points to sample from the mesh
+    # input_obj_file = "template.obj"  # Replace with your OBJ file path
+    # output_ply_file = "template_500.ply" # Replace with your desired PLY file path
+    num_points_to_sample = 500   # Number of points to sample from the mesh
 
     # --- Conversion ---
     print(f"Attempting to convert {input_obj_file} to {output_ply_file}...")
